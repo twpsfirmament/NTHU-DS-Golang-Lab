@@ -45,11 +45,11 @@ func (wp *workerPool) Start(ctx context.Context) {
 	// Starts numWorkers of goroutines, wait until all jobs are done.
 	// Remember to closed the result channel before exit.
 	for i := 0; i < wp.numWorkers; i++ {
-        wp.wg.Add(1)
-        go func() {
-            wp.run(ctx)
-        }()
-    }
+		wp.wg.Add(1)
+		go func() {
+			wp.run(ctx)
+		}()
+	}
 
 	wp.wg.Wait()
 	close(wp.results)
@@ -72,19 +72,21 @@ func (wp *workerPool) run(ctx context.Context) {
 	for {
 		select {
 		case task, ok := <-wp.tasks:
-				if !ok {
+			if !ok {
+				return
+			}
+			result := task.Func(task.Args...)
+			wp.results <- result
+			select {
+			case <-ctx.Done():
+				{
 					return
 				}
-				result := task.Func(task.Args...)
-				wp.results <- result
-				select {
-				case <-ctx.Done(): {
-					return
-				}
-				default:
-				}
+			default:
+			}
 		case <-ctx.Done():
-			return // Exit if context is cancelled
+			// Exit if context is cancelled
+			return
 		}
-    }
+	}
 }
